@@ -39,29 +39,6 @@ CREATE TYPE public.payment_status AS ENUM ('pending', 'completed', 'failed', 're
 CREATE TYPE public.payment_method AS ENUM ('chapa', 'manual', 'other');
 
 --------------------------------------------------------------------------------
--- Role helper (SECURITY DEFINER) — ALL admin checks in RLS use this function
---------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_roles ur
-    WHERE ur.user_id = _user_id
-      AND ur.role = _role
-  );
-$$;
-
-REVOKE ALL ON FUNCTION public.has_role(uuid, public.app_role) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO anon;
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO service_role;
-
---------------------------------------------------------------------------------
 -- Tables
 --------------------------------------------------------------------------------
 CREATE TABLE public.profiles (
@@ -196,6 +173,29 @@ CREATE TABLE public.payments (
   raw_payload jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+--------------------------------------------------------------------------------
+-- Role helper (SECURITY DEFINER) — ALL admin checks in RLS use this function
+--------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles ur
+    WHERE ur.user_id = _user_id
+      AND ur.role = _role
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.has_role(uuid, public.app_role) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO anon;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO service_role;
 
 --------------------------------------------------------------------------------
 -- Time-based validation triggers (spec: triggers, not CHECK, for time rules)
@@ -665,7 +665,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authentic
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
 
-
 -- >>> FILE: 20250517110000_public_influencer_directory.sql <<<
 
 -- Public read paths for marketing / directory (no direct profiles access for anon)
@@ -840,7 +839,6 @@ GRANT EXECUTE ON FUNCTION public.public_get_influencer(uuid) TO anon;
 GRANT EXECUTE ON FUNCTION public.public_get_influencer(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.public_get_influencer(uuid) TO service_role;
 
-
 -- >>> FILE: 20250517120000_influencer_onboarding_storage.sql <<<
 
 -- Influencer onboarding flag + public avatar storage (per-user folder)
@@ -931,7 +929,6 @@ CREATE POLICY avatars_delete_own_folder
     AND coalesce((storage.foldername(name))[1], '') = auth.uid()::text
   );
 
-
 -- >>> FILE: 20250517130000_messaging_peer_label.sql <<<
 
 -- Safe display names for messaging partners (only when a thread exists).
@@ -960,7 +957,6 @@ $$;
 REVOKE ALL ON FUNCTION public.messaging_peer_label(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.messaging_peer_label(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.messaging_peer_label(uuid) TO service_role;
-
 
 -- >>> FILE: 20250517140000_reviews_directory_phase10.sql <<<
 
@@ -1098,3 +1094,111 @@ AS $$
   END;
 $$;
 
+-- >>> FILE: 20250517150000_fix_directory_rpc_access.sql <<<
+
+-- Fix public directory RPC access for anon/publishable keys + safe profile reads for fallback queries.
+
+-- Allow anonymous users to read names/avatars only for approved influencers (directory marketing).
+DROP POLICY IF EXISTS profiles_select_public_directory ON public.profiles;
+
+CREATE POLICY profiles_select_public_directory
+  ON public.profiles
+  FOR SELECT
+  TO anon
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.influencer_profiles ip
+      WHERE ip.user_id = profiles.user_id
+        AND ip.status = 'approved'
+    )
+  );
+
+-- Ensure RPC functions exist and anon can execute (idempotent).
+CREATE OR REPLACE FUNCTION public.public_list_influencers(
+  p_search text DEFAULT NULL,
+  p_category text DEFAULT NULL,
+  p_location text DEFAULT NULL,
+  p_platform text DEFAULT NULL,
+  p_min_followers integer DEFAULT NULL,
+  p_max_followers integer DEFAULT NULL,
+  p_plan text DEFAULT NULL,
+  p_limit integer DEFAULT NULL
+)
+RETURNS TABLE (
+  user_id uuid,
+  full_name text,
+  avatar_url text,
+  bio text,
+  category text,
+  location text,
+  followers_count integer,
+  engagement_rate numeric,
+  ad_price_etb numeric,
+  subscription_plan text,
+  is_verified boolean
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    ip.user_id,
+    p.full_name,
+    p.avatar_url,
+    ip.bio,
+    ip.category,
+    ip.location,
+    ip.followers_count,
+    ip.engagement_rate,
+    ip.ad_price_etb,
+    ip.subscription_plan,
+    ip.is_verified
+  FROM public.influencer_profiles ip
+  INNER JOIN public.profiles p ON p.user_id = ip.user_id
+  WHERE ip.status = 'approved'
+    AND (
+      p_search IS NULL
+      OR trim(p_search) = ''
+      OR p.full_name ILIKE '%' || p_search || '%'
+      OR ip.bio ILIKE '%' || p_search || '%'
+      OR ip.category ILIKE '%' || p_search || '%'
+      OR ip.location ILIKE '%' || p_search || '%'
+    )
+    AND (p_category IS NULL OR trim(p_category) = '' OR ip.category ILIKE '%' || p_category || '%')
+    AND (p_location IS NULL OR trim(p_location) = '' OR ip.location ILIKE '%' || p_location || '%')
+    AND (p_min_followers IS NULL OR ip.followers_count >= p_min_followers)
+    AND (p_max_followers IS NULL OR ip.followers_count <= p_max_followers)
+    AND (p_plan IS NULL OR trim(p_plan) = '' OR ip.subscription_plan = p_plan)
+    AND (
+      p_platform IS NULL
+      OR trim(p_platform) = ''
+      OR EXISTS (
+        SELECT 1
+        FROM public.social_links sl
+        WHERE sl.influencer_id = ip.user_id
+          AND sl.platform ILIKE '%' || p_platform || '%'
+      )
+    )
+  ORDER BY
+    CASE ip.subscription_plan
+      WHEN 'elite' THEN 0
+      WHEN 'pro' THEN 1
+      ELSE 2
+    END,
+    ip.is_verified DESC,
+    ip.followers_count DESC NULLS LAST,
+    p.full_name ASC
+  LIMIT CASE
+    WHEN p_limit IS NULL OR p_limit < 1 THEN 500
+    WHEN p_limit > 500 THEN 500
+    ELSE p_limit
+  END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.public_list_influencers(
+  text, text, text, text, integer, integer, text, integer
+) TO anon, authenticated, service_role;
+
+NOTIFY pgrst, 'reload schema';

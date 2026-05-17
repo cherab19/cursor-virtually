@@ -30,29 +30,6 @@ CREATE TYPE public.payment_status AS ENUM ('pending', 'completed', 'failed', 're
 CREATE TYPE public.payment_method AS ENUM ('chapa', 'manual', 'other');
 
 --------------------------------------------------------------------------------
--- Role helper (SECURITY DEFINER) — ALL admin checks in RLS use this function
---------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_roles ur
-    WHERE ur.user_id = _user_id
-      AND ur.role = _role
-  );
-$$;
-
-REVOKE ALL ON FUNCTION public.has_role(uuid, public.app_role) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO anon;
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO service_role;
-
---------------------------------------------------------------------------------
 -- Tables
 --------------------------------------------------------------------------------
 CREATE TABLE public.profiles (
@@ -187,6 +164,29 @@ CREATE TABLE public.payments (
   raw_payload jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+--------------------------------------------------------------------------------
+-- Role helper (SECURITY DEFINER) — ALL admin checks in RLS use this function
+--------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles ur
+    WHERE ur.user_id = _user_id
+      AND ur.role = _role
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.has_role(uuid, public.app_role) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO anon;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO service_role;
 
 --------------------------------------------------------------------------------
 -- Time-based validation triggers (spec: triggers, not CHECK, for time rules)

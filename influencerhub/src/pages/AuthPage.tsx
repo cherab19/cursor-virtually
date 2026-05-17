@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 
 import { Seo } from "@/components/seo/Seo";
@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/integrations/supabase/database.types";
+import { formatAuthError } from "@/lib/auth-errors";
 import { dashboardPathForRoles } from "@/lib/auth-redirect";
+import { getSiteOrigin } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 type AuthMode = "signin" | "signup";
@@ -31,6 +33,7 @@ export function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const submitInFlight = useRef(false);
 
   if (loading) {
     return (
@@ -64,8 +67,11 @@ export function AuthPage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitInFlight.current || busy) return;
+
     setError(null);
     setInfo(null);
+    submitInFlight.current = true;
     setBusy(true);
 
     try {
@@ -74,10 +80,13 @@ export function AuthPage() {
         return;
       }
       if (mode === "signup") {
+        const origin = getSiteOrigin();
+        const emailRedirectTo = origin ? `${origin}/auth` : undefined;
         const { error: signUpError, data } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
+            emailRedirectTo,
             data: {
               full_name: fullName.trim(),
               role: signupRole,
@@ -86,7 +95,7 @@ export function AuthPage() {
         });
 
         if (signUpError) {
-          setError(signUpError.message);
+          setError(formatAuthError(signUpError));
           return;
         }
 
@@ -105,7 +114,7 @@ export function AuthPage() {
         });
 
         if (signInError) {
-          setError(signInError.message);
+          setError(formatAuthError(signInError));
           return;
         }
 
@@ -114,6 +123,7 @@ export function AuthPage() {
         }
       }
     } finally {
+      submitInFlight.current = false;
       setBusy(false);
     }
   };

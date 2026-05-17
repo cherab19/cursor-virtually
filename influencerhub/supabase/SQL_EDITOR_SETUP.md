@@ -26,16 +26,26 @@ I cannot sign in to your Supabase account from this environment. Use the steps b
 - Realtime on `messages`
 - Seed data for subscription plans (Free / Pro / Elite)
 
+## Important
+
+The bundled SQL was fixed so `has_role()` is created **after** the `user_roles` table (older copies failed on fresh projects with “relation user_roles does not exist”). Regenerate before pasting:
+
+```bash
+npm run db:build-sql
+```
+
 ## After running SQL
 
 1. **Auth → URL configuration**: add `http://localhost:5173` (and your Vercel URL) to Site URL / Redirect URLs.
 
-2. Restart the app:
+2. **Auth → Providers → Email** (recommended for local dev): turn **off** “Confirm email”. Supabase’s built-in mailer has a low hourly limit; repeated signups return HTTP 429 (`over_email_send_rate_limit`) until you disable confirmations or wait for the limit to reset.
+
+3. Restart the app:
    ```bash
    cd influencerhub && npm run dev
    ```
 
-3. Sign up at `/auth` as influencer or advertiser.
+4. Sign up at `/auth` as influencer or advertiser.
 
 ## Optional: CLI instead of paste
 

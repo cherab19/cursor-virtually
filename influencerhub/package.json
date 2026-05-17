@@ -8,7 +8,12 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "db:print-sql": "cat supabase/APPLY_IN_SQL_EDITOR.sql"
+    "db:print-sql": "cat supabase/APPLY_IN_SQL_EDITOR.sql",
+    "db:build-sql": "bash scripts/build-apply-sql.sh",
+    "db:apply": "bash scripts/apply-migrations.sh",
+    "db:seed": "node scripts/seed-demo-creators.mjs",
+    "db:seed-admin": "node scripts/seed-local-admin.mjs",
+    "db:seed-all": "npm run db:seed && npm run db:seed-admin"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.0",

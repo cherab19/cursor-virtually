@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { InfluencerCard } from "@/components/influencers/InfluencerCard";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
+import { directoryErrorMessage } from "@/lib/directory-api";
 import { useFeaturedEliteInfluencers } from "@/hooks/use-influencer-directory";
 import { DEFAULT_DESCRIPTION, getSiteOrigin } from "@/lib/site";
 
@@ -133,9 +134,27 @@ export function LandingPage() {
             <div className="mt-10 rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
               <p className="font-medium">We couldn&apos;t load featured creators.</p>
               <p className="mt-1 text-destructive/90">
-                Confirm Supabase env vars and that migration <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground">20250517110000_public_influencer_directory.sql</code>{" "}
-                is applied, then refresh.
+                Run{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground">npm run db:build-sql</code> then
+                paste{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground">supabase/APPLY_IN_SQL_EDITOR.sql</code>{" "}
+                in the{" "}
+                <a
+                  href="https://supabase.com/dashboard/project/sqapdmmczjlrwuibbtsr/sql/new"
+                  className="underline underline-offset-2"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Supabase SQL Editor
+                </a>
+                . For local dev: <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground">npx supabase start</code>{" "}
+                and use <code className="rounded bg-muted px-1 py-0.5 text-xs text-foreground">.env.local</code>.
               </p>
+              {import.meta.env.DEV && featured.error ? (
+                <p className="mt-2 font-mono text-xs text-destructive/80">
+                  {directoryErrorMessage(featured.error)}
+                </p>
+              ) : null}
               <Button type="button" variant="outline" className="mt-4" size="sm" onClick={() => void featured.refetch()}>
                 Try again
               </Button>
