@@ -22,6 +22,10 @@ npm run dev
 
 See [influencerhub/README.md](influencerhub/README.md) for Supabase migrations, deploy, and demo script.
 
+### Deploy on Vercel (this monorepo)
+
+Either set **Root Directory** → `influencerhub` in Vercel project settings, **or** use the root `vercel.json` (builds `influencerhub/` automatically). Env vars are still the three `VITE_*` keys from `influencerhub/.env.example`.
+
 ### SDK builder (optional)
 
 ```bash
