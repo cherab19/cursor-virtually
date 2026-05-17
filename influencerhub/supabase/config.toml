@@ -1,0 +1,12 @@
+# InfluencerHub — local Supabase CLI config (edge functions)
+
+project_id = "influencerhub"
+
+[api]
+enabled = true
+
+[functions.chapa-initialize]
+verify_jwt = true
+
+[functions.chapa-verify]
+verify_jwt = false

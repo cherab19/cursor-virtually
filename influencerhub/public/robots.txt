@@ -1,0 +1,6 @@
+# https://www.robotstxt.org/
+User-agent: *
+Allow: /
+
+# Replace the origin with your production URL (match VITE_SITE_URL / Vercel domain).
+Sitemap: https://your-production-domain.example/sitemap.xml
