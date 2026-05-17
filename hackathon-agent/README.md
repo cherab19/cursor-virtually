@@ -63,6 +63,21 @@ src/
     cloud-agent.ts
 ```
 
-## Build your idea here
+## InfluencerHub — truly SDK-built
+
+See **[SDK_BUILD.md](./SDK_BUILD.md)** for the full runbook.
+
+| Command | What it does |
+|---------|----------------|
+| `npm run build:influencerhub:fresh` | **Backup app + reset + all 11 SDK phases** |
+| `npm run build:influencerhub` | Continue / run phases (local `Agent.create`) |
+| `npm run build:influencerhub -- --resume --from N` | Resume after failure |
+| `REPO_URL=... npm run build:influencerhub:cloud` | Cloud agent (Pro+) |
+
+Requires `CURSOR_API_KEY` in `.env` or environment. Proof of SDK build: `logs/sdk-build-log.jsonl` + `.influencerhub-build-state.json`.
+
+Master spec: `prompts/influencerhub-master.md`
+
+## Build your own idea
 
 Copy an example into `src/your-app.ts`, wire your product logic around `Agent.create()` or `Agent.prompt()`, and iterate. Sunday is about velocity — polish later.

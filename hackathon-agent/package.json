@@ -8,6 +8,10 @@
     "example:prompt": "tsx src/examples/one-shot-prompt.ts",
     "example:stream": "tsx src/examples/streaming-agent.ts",
     "example:cloud": "tsx src/examples/cloud-agent.ts",
+    "build:influencerhub": "tsx src/influencerhub/run.ts",
+    "build:influencerhub:fresh": "tsx src/influencerhub/run.ts -- --fresh",
+    "build:influencerhub:cloud": "tsx src/influencerhub/cloud-build.ts",
+    "build:influencerhub:dry": "tsx src/influencerhub/run.ts -- --dry-run",
     "typecheck": "tsc --noEmit"
   },
   "keywords": ["cursor", "agent-sdk", "hackathon"],

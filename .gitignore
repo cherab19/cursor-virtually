@@ -1,0 +1,14 @@
+# Local env and secrets
+.env
+.env.*
+!.env.example
+
+# SDK build artifacts
+influencerhub-backup-*/
+**/supabase/browser-chunks/
+hackathon-agent/logs/
+hackathon-agent/.influencerhub-build-state.json
+
+# Dependencies and build output
+node_modules/
+dist/

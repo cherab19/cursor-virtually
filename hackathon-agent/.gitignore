@@ -1,2 +1,4 @@
 node_modules/
 .env
+.influencerhub-build-state.json
+logs/
